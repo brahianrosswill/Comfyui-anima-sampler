@@ -5,38 +5,42 @@ from unittest.mock import patch
 
 import torch
 
-from anima_sampler.flow_sampler import (
+from anima_sampler.cfg_schedule import (
     CFG_SCHEDULE_DOMAINS,
     CFG_SCHEDULE_MODES,
-    AnimaSamplerLog,
-    FLOW_SOLVERS,
-    FlowERState,
-    FlowPC3State,
-    FlowUniPC2State,
-    _describe_model_sampling_shift,
-    _hybrid_tail_start_step,
-    _infer_cosmos_latent_channels,
-    _randn_like,
-    _restore_sampler_channels,
-    build_anima_sigmas,
+    cfg_at_progress,
     cfg_schedule_position,
-    sample_anima_flow_corrective,
+)
+from anima_sampler.flow_constants import FLOW_SOLVERS
+from anima_sampler.flow_sampler import _fix_empty_latent_channels_compat
+from anima_sampler.latent_utils import (
+    _infer_cosmos_latent_channels,
+    _normalize_cosmos_latent,
+    _restore_sampler_channels,
+)
+from anima_sampler.sampler_log import AnimaSamplerLog
+from anima_sampler.sampler_trace import format_sampler_trace_csv
+from anima_sampler.solver_types import FlowERState, FlowPC3State, FlowUniPC2State
+from anima_sampler.solvers.basic import (
+    _randn_like,
     flow_ab2_step,
     flow_er_step,
     flow_euler_step,
-    flow_3m_damped_step,
-    flow_unipc2_x0_step,
+    flow_heun_step,
+    flow_velocity,
+    rf_endpoint_noise_refresh,
+)
+from anima_sampler.solvers.pc3 import (
     flow_pc3_damped_step,
     flow_pc3_damped_step_result,
     flow_pc3_predictor_step,
     flow_pc3_predictor_step_result,
-    format_sampler_trace_csv,
-    flow_heun_step,
-    rf_endpoint_noise_refresh,
-    flow_velocity,
-    _normalize_cosmos_latent,
-    cfg_at_progress,
 )
+from anima_sampler.solvers.three_m import flow_3m_damped_step
+from anima_sampler.solvers.unipc import flow_unipc2_x0_step
+from anima_sampler.sigma_schedule import _describe_model_sampling_shift, build_anima_sigmas
+from anima_sampler.sampling_loop import sample_anima_flow_corrective
+from anima_sampler.tail_detection import _hybrid_tail_start_step
 
 
 class FlowSamplerScheduleTests(unittest.TestCase):
@@ -571,6 +575,73 @@ class FlowSamplerScheduleTests(unittest.TestCase):
             "bypassed by flow_rf_linear_s_tail_shift5",
             _describe_model_sampling_shift(model, flow_schedule="flow_rf_linear_s_tail_shift5"),
         )
+
+    def test_fix_empty_latent_channels_compat_uses_temporal_arg_when_available(self):
+        calls = []
+
+        def fix_empty_latent_channels(
+            model,
+            latent_image,
+            downscale_ratio_spacial=None,
+            downscale_ratio_temporal=None,
+        ):
+            calls.append(
+                (
+                    model,
+                    latent_image,
+                    downscale_ratio_spacial,
+                    downscale_ratio_temporal,
+                )
+            )
+            return "fixed"
+
+        comfy_sample = types.SimpleNamespace(fix_empty_latent_channels=fix_empty_latent_channels)
+
+        result = _fix_empty_latent_channels_compat(comfy_sample, "model", "latent", 8, 4)
+
+        self.assertEqual(result, "fixed")
+        self.assertEqual(calls, [("model", "latent", 8, 4)])
+
+    def test_fix_empty_latent_channels_compat_supports_keyword_only_temporal_arg(self):
+        calls = []
+
+        def fix_empty_latent_channels(
+            model,
+            latent_image,
+            downscale_ratio_spacial=None,
+            *,
+            downscale_ratio_temporal=None,
+        ):
+            calls.append(
+                (
+                    model,
+                    latent_image,
+                    downscale_ratio_spacial,
+                    downscale_ratio_temporal,
+                )
+            )
+            return "fixed"
+
+        comfy_sample = types.SimpleNamespace(fix_empty_latent_channels=fix_empty_latent_channels)
+
+        result = _fix_empty_latent_channels_compat(comfy_sample, "model", "latent", 8, 4)
+
+        self.assertEqual(result, "fixed")
+        self.assertEqual(calls, [("model", "latent", 8, 4)])
+
+    def test_fix_empty_latent_channels_compat_omits_temporal_arg_for_old_comfy(self):
+        calls = []
+
+        def fix_empty_latent_channels(model, latent_image, downscale_ratio_spacial=None):
+            calls.append((model, latent_image, downscale_ratio_spacial))
+            return "fixed"
+
+        comfy_sample = types.SimpleNamespace(fix_empty_latent_channels=fix_empty_latent_channels)
+
+        result = _fix_empty_latent_channels_compat(comfy_sample, "model", "latent", 8, 4)
+
+        self.assertEqual(result, "fixed")
+        self.assertEqual(calls, [("model", "latent", 8)])
 
     def test_4d_image_latent_gets_temporal_axis_for_cosmos(self):
         latent = {"samples": torch.zeros(1, 16, 64, 64)}
