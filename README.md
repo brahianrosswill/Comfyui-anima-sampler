@@ -15,14 +15,33 @@ The default profile follows the public Anima Diffusers scheduler config:
 solver        = flow_euler
 schedule      = flow_diffusers_linear_shift
 flow_shift    = 3.0
-steps         = 35
-cfg           = 7.0
+steps         = 30
+cfg           = 5.0
 cfg_mode      = const
 final_clean_pass = false
 ```
 
 The goal is to improve prompt structure, spatial relationships, and detail
 stability while keeping the node surface small enough for daily use.
+
+## Update
+
+May 31, 2026:
+
+- The packaged default now uses 30 steps, CFG 5.0, constant CFG,
+  `flow_euler`, `flow_diffusers_linear_shift`, `flow_shift 3.0`, and no final
+  clean pass.
+- Added `flow_diffusers_linear_shift`, mirroring the non-dynamic-shifting
+  `FlowMatchEulerDiscreteScheduler` sigma grid used by
+  `Anima-Base-v1.0-Diffusers`.
+- Added two explicit Diffusers-grid experimental solvers:
+  `flow_unipc2_diffusers_x0` and `flow_pc3_diffusers_damped`. Both keep the
+  existing solver math but use conservative low-sigma tail handling on the
+  Diffusers timestep grid.
+- Kept the previous enhanced profile selectable:
+  `flow_unipc2_x0 + flow_rf_linear_shift + flow_shift 5.0`.
+- Simplified the released node surface to `Anima Flow Corrective Sampler` and
+  `Anima Flow Settings`.
 
 ## Example Output
 
@@ -53,8 +72,8 @@ The sampler outputs both `LATENT` and `IMAGE`. Connect a `VAE` to the optional
 Leave `vae` disconnected when you only need the latent output.
 
 `ramp cfg` starts guidance low and smoothly raises it to the selected `cfg`.
-With the default `cfg=7`, it starts near `4.5`, keeps that low guidance through
-the early high-noise phase, and reaches `7` before the tail/detail phase.
+With the default `cfg=5`, it starts near `4.5`, keeps that low guidance through
+the early high-noise phase, and reaches `5` before the tail/detail phase.
 
 ## Install
 
@@ -89,8 +108,8 @@ Use `Anima Flow Corrective Sampler` in place of a normal sampler node.
 
 Everyday controls:
 
-- `steps`: default `35`
-- `cfg`: default `7.0`
+- `steps`: default `30`
+- `cfg`: default `5.0`
 - `cfg_mode`: recommended `const` or `ramp cfg`
 - `flow_solver`: default `flow_euler`
 - `flow_schedule`: default `flow_diffusers_linear_shift`
@@ -130,7 +149,7 @@ baked into the preset name.
 ## Current Default
 
 The packaged default now follows the official Anima Diffusers-style path:
-`flow_euler + flow_diffusers_linear_shift + flow_shift 3.0 + const cfg 7.0`,
+`flow_euler + flow_diffusers_linear_shift + flow_shift 3.0 + const cfg 5.0`,
 with no final clean pass when the settings node is disconnected.
 
 Official reference combinations:

@@ -385,12 +385,12 @@
       "widgets_values": [
         608425964937781,
         "randomize",
-        35,
-        7,
-        "const",
-        "flow_unipc2_x0",
-        "flow_rf_linear_shift",
+        30,
         5,
+        "const",
+        "flow_euler",
+        "flow_diffusers_linear_shift",
+        3,
         1,
         true
       ]

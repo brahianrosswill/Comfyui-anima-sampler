@@ -17,8 +17,8 @@ NO_FINAL_CLEAN_DISCONNECTED_SCHEDULES = {
 }
 
 ANIMA_FLOW_BASELINE = {
-    "steps": 35,
-    "cfg": 7.0,
+    "steps": 30,
+    "cfg": 5.0,
     "flow_solver": "flow_euler",
     "flow_er_order": 2,
     "flow_pc3_gamma": 1.0,
