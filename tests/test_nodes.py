@@ -67,8 +67,8 @@ class NodeRegistrationTests(unittest.TestCase):
         required = input_types["required"]
         optional = input_types["optional"]
 
-        self.assertEqual(required["steps"][1]["default"], 35)
-        self.assertEqual(required["cfg"][1]["default"], 7.0)
+        self.assertEqual(required["steps"][1]["default"], 30)
+        self.assertEqual(required["cfg"][1]["default"], 5.0)
         self.assertEqual(required["cfg_mode"][0], PUBLIC_CFG_MODES)
         self.assertEqual(required["cfg_mode"][1]["default"], "const")
         self.assertEqual(required["flow_solver"][1]["default"], "flow_euler")
@@ -198,8 +198,8 @@ class NodeRegistrationTests(unittest.TestCase):
     def test_none_settings_use_official_anima_diffusers_baseline(self):
         settings = _normalize_settings_object(None)
 
-        self.assertEqual(settings["steps"], 35)
-        self.assertEqual(settings["cfg"], 7.0)
+        self.assertEqual(settings["steps"], 30)
+        self.assertEqual(settings["cfg"], 5.0)
         self.assertEqual(settings["flow_solver"], "flow_euler")
         self.assertEqual(settings["flow_schedule"], "flow_diffusers_linear_shift")
         self.assertEqual(settings["flow_shift"], 3.0)
@@ -237,7 +237,7 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertEqual(bump["cfg_bump_start"], 0.0)
         self.assertEqual(bump["cfg_bump_end"], 0.27)
         self.assertEqual(ramp["cfg_schedule_mode"], "low_to_high")
-        self.assertAlmostEqual(ramp["cfg_early_scale"], 4.5 / 7.0)
+        self.assertAlmostEqual(ramp["cfg_early_scale"], 4.5 / 5.0)
         self.assertEqual(ramp["cfg_interval_start"], 0.24)
         self.assertEqual(ramp["cfg_interval_rise_end"], 0.66)
         self.assertEqual(ramp["cfg_interval_fall_start"], 1.0)
@@ -308,8 +308,8 @@ class NodeRegistrationTests(unittest.TestCase):
 
         kwargs = run.call_args.kwargs
         self.assertEqual(kwargs["seed"], 12)
-        self.assertEqual(kwargs["steps"], 35)
-        self.assertEqual(kwargs["cfg"], 7.0)
+        self.assertEqual(kwargs["steps"], 30)
+        self.assertEqual(kwargs["cfg"], 5.0)
         self.assertEqual(kwargs["flow_solver"], "flow_euler")
         self.assertEqual(kwargs["flow_schedule"], "flow_diffusers_linear_shift")
         self.assertEqual(kwargs["cfg_schedule_domain"], "progress")
@@ -367,8 +367,8 @@ class NodeRegistrationTests(unittest.TestCase):
                 negative=[],
                 latent_image=latent,
                 seed=1,
-                steps=35,
-                cfg=6.0,
+                steps=30,
+                cfg=5.0,
                 cfg_mode="bump cfg",
                 flow_solver="flow_pc3_damped",
                 flow_schedule="flow_cosmos",
@@ -392,8 +392,8 @@ class NodeRegistrationTests(unittest.TestCase):
                 negative=[],
                 latent_image=latent,
                 seed=1,
-                steps=35,
-                cfg=6.0,
+                steps=30,
+                cfg=5.0,
                 cfg_mode="const",
                 flow_solver="flow_euler",
                 flow_schedule="flow_diffusers_linear_shift",
