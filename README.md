@@ -1,24 +1,24 @@
 # ComfyUI Anima Flow Corrective Sampler
 
 Custom ComfyUI sampler nodes for Anima / Cosmos-style rectified-flow image
-models. It packages a Cosmos-aligned RF linear shift schedule with UniPC and
-PC3 solver options for stronger structure, spatial consistency, and detail
-retention in ComfyUI.
+models. It packages the official Anima Diffusers FlowMatch Euler schedule by
+default, with optional UniPC and PC3 solver variants for A/B testing in ComfyUI.
 
 This is an independent implementation, not an official NVIDIA or CircleStone
 Labs release. The design is aligned with public Cosmos / Cosmos Predict2.5
 pipeline ideas such as rectified-flow scheduling and UniPC-style
 predictor-corrector sampling.
 
-The default profile packages the current tested Anima workflow:
+The default profile follows the public Anima Diffusers scheduler config:
 
 ```text
-solver        = flow_unipc2_x0
-schedule      = flow_rf_linear_shift
-flow_shift    = 5.0
+solver        = flow_euler
+schedule      = flow_diffusers_linear_shift
+flow_shift    = 3.0
 steps         = 35
 cfg           = 7.0
 cfg_mode      = const
+final_clean_pass = false
 ```
 
 The goal is to improve prompt structure, spatial relationships, and detail
@@ -43,9 +43,6 @@ in ComfyUI to inspect the example workflow.
 
 - `Anima Flow Corrective Sampler`: the main sampler node.
 - `Anima Flow Settings`: optional advanced controls for solver and CFG tuning.
-- `Anima Four Way Comparison`: fixed four-way image grid for UniPC linear
-  shift cfg7, PC3 linear shift cfg7, `er_sde + simple` cfg4.5, and
-  `er_sde + simple` cfg7.
 
 The sampler works without connecting `Anima Flow Settings`; the tested defaults
 are built in. Connect the settings node only when you want to tune advanced
@@ -54,10 +51,6 @@ parameters.
 The sampler outputs both `LATENT` and `IMAGE`. Connect a `VAE` to the optional
 `vae` input when you want the image output decoded directly from the sampler.
 Leave `vae` disconnected when you only need the latent output.
-
-The four-way comparison node requires a `VAE` and outputs a labeled comparison
-image, four individual images, and a log. It is intended for quick visual checks
-against the native `er_sde + simple` baseline.
 
 `ramp cfg` starts guidance low and smoothly raises it to the selected `cfg`.
 With the default `cfg=7`, it starts near `4.5`, keeps that low guidance through
@@ -99,10 +92,11 @@ Everyday controls:
 - `steps`: default `35`
 - `cfg`: default `7.0`
 - `cfg_mode`: recommended `const` or `ramp cfg`
-- `flow_solver`: default `flow_unipc2_x0`
-- `flow_schedule`: default `flow_rf_linear_shift`
-- `flow_shift`: default `5.0` and used by shift-aware schedules such as
-  `flow_cosmos_rf_tail` and `flow_rf_linear_shift`
+- `flow_solver`: default `flow_euler`
+- `flow_schedule`: default `flow_diffusers_linear_shift`
+- `flow_shift`: default `3.0` and used by shift-aware schedules such as
+  `flow_diffusers_linear_shift`, `flow_cosmos_rf_tail`, and
+  `flow_rf_linear_shift`
 - `denoise`
 - `add_noise`
 - optional `vae` for direct image output
@@ -114,6 +108,10 @@ Everyday controls:
 `flow_cosmos_rho7` is the pure rho7/Karras-style Cosmos schedule. Connect
 `Anima Flow Settings` and enable `flow_rho7_tail_auto` to add the previous
 RF-tail-auto modification on top of rho7.
+
+`flow_diffusers_linear_shift` mirrors the non-dynamic-shifting
+`FlowMatchEulerDiscreteScheduler` path used by the Anima Diffusers release. The
+packaged default uses `flow_shift 3.0` and no final clean pass.
 
 `flow_rf_linear_shift` follows the newer Cosmos Predict2.5 normalized RF
 linear inference grid with the same shift formula used by their FlowUniPC
@@ -131,8 +129,8 @@ baked into the preset name.
 
 ## Current Default
 
-The packaged default now follows the Cosmos 2.5-style path:
-`flow_unipc2_x0 + flow_rf_linear_shift + flow_shift 5.0 + const cfg 7.0`,
+The packaged default now follows the official Anima Diffusers-style path:
+`flow_euler + flow_diffusers_linear_shift + flow_shift 3.0 + const cfg 7.0`,
 with no final clean pass when the settings node is disconnected.
 
 Official reference combinations:
@@ -140,12 +138,15 @@ Official reference combinations:
 - Cosmos2: `AB2 x0/denoised solver + Karras/rho7 sigmas`
   (`sigma_max 80.0`, `sigma_min 0.002`, `rho 7`) + constant CFG + final
   clean pass at the last non-zero sigma.
+- Anima Diffusers: `FlowMatchEulerDiscreteScheduler`
+  (`shift 3`, `use_dynamic_shifting false`, `stochastic_sampling false`) +
+  Euler stepping, walking to terminal zero.
 - Cosmos 2.5: `FlowUniPC order 2 + normalized RF linear shift schedule`
   (`shift 5` in the released configs) + constant CFG, walking to terminal
   zero without the old Cosmos2-style final clean pass.
 
-For maximum quality, my preferred profile is
-`flow_pc3_damped + flow_rf_linear_shift + flow_shift 5.0 + ramp cfg 7.0`.
+The previous enhanced profile remains selectable as
+`flow_unipc2_x0 + flow_rf_linear_shift + flow_shift 5.0 + const cfg 7.0`.
 
 `flow_pc3_damped + flow_cosmos` and `flow_cosmos_rf_tail + flow_shift 5.0`
 remain available as explicit alternatives from previous testing.
@@ -165,19 +166,28 @@ output. The settings node exposes the original-style UniPC controls for
 solver order, `bh1`/`bh2`, lower-order final, disabled early correctors, and
 dynamic thresholding.
 
+`flow_unipc2_diffusers_x0` reuses the same UniPC math with a conservative
+Diffusers-grid policy: order-2 body steps, first-order low-sigma tail steps, and
+tail corrector skips where the official Diffusers grid has very large lambda
+gaps.
+
+`flow_pc3_diffusers_damped` reuses PC3 in the stable body of the Diffusers grid
+and skips endpoint correction in the low-sigma tail. This keeps the old
+`flow_pc3_damped` behavior unchanged while making the Diffusers-grid experiment
+explicit.
+
 `flow_ab2` is available as a one-model-call Adams-Bashforth 2 solver. It uses
 the previous x0 prediction after an Euler warmup step, matching the residual
 x0 AB2 idea in the Cosmos reference scheduler while using this sampler's
 normalized RF time.
 
-The sampler runs a final clean pass by default: when enabled, the integration
-loop stops at the last non-zero sigma instead of taking the appended terminal
-zero interval, then asks the model for one more x0/denoised prediction at that
-same non-zero sigma. This matches the explicit clean pass used in the Cosmos
-reference pipelines more closely than cleaning a terminal-zero state, and can
-be disabled from `Anima Flow Settings` for A/B testing. `flow_rf_linear_shift`
-and `flow_rf_linear_s_tail_shift5` are the exceptions in the disconnected daily
-sampler: they default to no final clean pass so the linear RF presets walk to
+The final clean pass is optional. When enabled, the integration loop stops at
+the last non-zero sigma instead of taking the appended terminal zero interval,
+then asks the model for one more x0/denoised prediction at that same non-zero
+sigma. This matches the explicit clean pass used in the Cosmos reference
+pipelines more closely than cleaning a terminal-zero state. The disconnected
+daily defaults for `flow_diffusers_linear_shift`, `flow_rf_linear_shift`, and
+`flow_rf_linear_s_tail_shift5` leave it off so the linear RF presets walk to
 terminal zero.
 
 ## Development

@@ -139,7 +139,8 @@ class ExperimentHelperTests(unittest.TestCase):
             parse_sweep_values(
                 (
                     "flow_euler, flow_ab2, flow_heun, flow_pc3_damped, "
-                    "flow_3m_damped, flow_unipc2_x0, flow_er"
+                    "flow_pc3_diffusers_damped, flow_3m_damped, "
+                    "flow_unipc2_x0, flow_unipc2_diffusers_x0, flow_er"
                 ),
                 "flow_solver",
                 max_runs=12,
@@ -149,8 +150,10 @@ class ExperimentHelperTests(unittest.TestCase):
                 "flow_ab2",
                 "flow_heun",
                 "flow_pc3_damped",
+                "flow_pc3_diffusers_damped",
                 "flow_3m_damped",
                 "flow_unipc2_x0",
+                "flow_unipc2_diffusers_x0",
                 "flow_er",
             ],
         )
@@ -163,14 +166,15 @@ class ExperimentHelperTests(unittest.TestCase):
         self.assertEqual(
             parse_sweep_values(
                 (
-                    "flow_cosmos, flow_cosmos_rf_tail, flow_cosmos_lambda_biased_strong, "
-                    "flow_cosmos_rho7, flow_rf_linear_shift, "
+                    "flow_diffusers_linear_shift, flow_cosmos, flow_cosmos_rf_tail, "
+                    "flow_cosmos_lambda_biased_strong, flow_cosmos_rho7, flow_rf_linear_shift, "
                     "flow_rf_linear_s_tail_shift5, simple"
                 ),
                 "flow_schedule",
                 max_runs=12,
             ),
             [
+                "flow_diffusers_linear_shift",
                 "flow_cosmos",
                 "flow_cosmos_rf_tail",
                 "flow_cosmos_lambda_biased_strong",

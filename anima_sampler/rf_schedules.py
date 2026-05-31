@@ -31,6 +31,38 @@ def build_flow_rf_linear_shift_sigmas(
     return values
 
 
+def build_flow_diffusers_linear_shift_sigmas(
+    steps: int,
+    *,
+    shift: float = 3.0,
+    num_train_timesteps: int = 1000,
+) -> list[float]:
+    """Build Diffusers FlowMatchEulerDiscreteScheduler sigmas.
+
+    This mirrors the non-dynamic-shifting ``set_timesteps`` path used by
+    Diffusers for Anima-Base-v1.0-Diffusers.
+    """
+
+    validate_steps(steps)
+    shift = float(shift)
+    if not isfinite(shift) or shift <= 0.0:
+        raise ValueError("shift must be finite and positive")
+    if num_train_timesteps < 2:
+        raise ValueError("num_train_timesteps must be at least 2")
+
+    training_sigma_min = _rf_shift_sigma(
+        1.0 / float(num_train_timesteps),
+        shift=shift,
+    )
+    values = []
+    for step in range(steps):
+        alpha = step / (steps - 1) if steps > 1 else 0.0
+        sigma = 1.0 + alpha * (training_sigma_min - 1.0)
+        values.append(_rf_shift_sigma(sigma, shift=shift))
+    values.append(0.0)
+    return values
+
+
 def build_flow_rf_linear_s_tail_shift5_sigmas(
     steps: int,
     *,
