@@ -2,18 +2,24 @@ import unittest
 
 import torch
 
-from anima_sampler.experiment import (
+from anima_sampler.cfg_schedule import CFG_SCHEDULE_MODES
+from anima_sampler import experiment as experiment_facade
+from anima_sampler.experiment_sweeps import (
     NO_SECONDARY_SWEEP,
     PARAMETER_MATRIX_KEYS,
     PARAMETER_SWEEP_KEYS,
-    build_labeled_comparison_grid,
     build_parameter_combinations,
     parse_sweep_values,
 )
-from anima_sampler.flow_sampler import CFG_SCHEDULE_MODES
+from anima_sampler.image_grid import build_labeled_comparison_grid
 
 
 class ExperimentHelperTests(unittest.TestCase):
+    def test_experiment_module_keeps_compatibility_exports(self):
+        self.assertIs(experiment_facade.parse_sweep_values, parse_sweep_values)
+        self.assertIs(experiment_facade.build_parameter_combinations, build_parameter_combinations)
+        self.assertIs(experiment_facade.build_labeled_comparison_grid, build_labeled_comparison_grid)
+
     def test_parse_float_sweep_values(self):
         self.assertEqual(
             parse_sweep_values("2.0, 3.0\n4.0", "cfg", max_runs=8),

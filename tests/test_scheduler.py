@@ -1,10 +1,7 @@
 import unittest
 
-from anima_sampler.scheduler import (
-    PhaseSteps,
-    allocate_phase_steps,
-    build_anchored_sigmas,
-    build_early_dense_sigmas,
+from anima_sampler import scheduler as scheduler_facade
+from anima_sampler.flow_schedules import (
     build_flow_cosmos_beta_sigmas,
     build_flow_cosmos_lambda_biased_sigmas,
     build_flow_cosmos_rho_rf_tail_sigmas,
@@ -13,12 +10,24 @@ from anima_sampler.scheduler import (
     build_flow_cosmos_sigmas,
     build_flow_rf_linear_s_tail_shift5_sigmas,
     build_flow_rf_linear_shift_sigmas,
+)
+from anima_sampler.scheduler_core import (
+    PhaseSteps,
+    allocate_phase_steps,
+    build_anchored_sigmas,
+    build_early_dense_sigmas,
     build_phase_positions,
     build_simple_sigmas,
 )
 
 
 class SchedulerTests(unittest.TestCase):
+    def test_scheduler_module_keeps_compatibility_exports(self):
+        self.assertIs(scheduler_facade.build_simple_sigmas, build_simple_sigmas)
+        self.assertIs(scheduler_facade.build_flow_cosmos_sigmas, build_flow_cosmos_sigmas)
+        self.assertIs(scheduler_facade.build_flow_rf_linear_shift_sigmas, build_flow_rf_linear_shift_sigmas)
+        self.assertIs(scheduler_facade.PhaseSteps, PhaseSteps)
+
     def test_simple_matches_comfyui_index_pattern(self):
         sigmas = [index / 100 for index in range(101)]
 
