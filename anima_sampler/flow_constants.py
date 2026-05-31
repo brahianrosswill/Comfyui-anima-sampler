@@ -11,6 +11,7 @@ FLOW_SOLVERS = [
 ]
 
 FLOW_SCHEDULES = [
+    "flow_diffusers_linear_shift",
     "flow_cosmos",
     "flow_cosmos_rf_tail",
     "flow_cosmos_lambda_biased_strong",

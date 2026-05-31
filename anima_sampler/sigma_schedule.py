@@ -8,6 +8,7 @@ from typing import Any
 
 from .model_sampling_info import _describe_model_sampling_shift
 from .flow_schedules import (
+    build_flow_diffusers_linear_shift_sigmas,
     build_flow_cosmos_lambda_biased_sigmas,
     build_flow_cosmos_rho_rf_tail_sigmas,
     build_flow_cosmos_rho_sigmas,
@@ -27,7 +28,7 @@ def build_anima_sigmas(
     *,
     denoise: float,
     flow_schedule: str,
-    flow_shift: float = 1.0,
+    flow_shift: float = 3.0,
     flow_rho7_tail_auto: bool = False,
     cosmos_sigma_max: float = 80.0,
     cosmos_sigma_min: float = 0.002,
@@ -82,6 +83,11 @@ def build_anima_sigmas(
             flow_rho7_tail_auto=flow_rho7_tail_auto,
             cosmos_sigma_max=cosmos_sigma_max,
             cosmos_sigma_min=cosmos_sigma_min,
+        )
+    elif flow_schedule == "flow_diffusers_linear_shift":
+        values = build_flow_diffusers_linear_shift_sigmas(
+            schedule_steps,
+            shift=flow_shift,
         )
     elif flow_schedule == "flow_cosmos":
         values = _build_flow_cosmos_sigmas(

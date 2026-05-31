@@ -9,6 +9,7 @@ from .flow_schedules import (
     build_flow_cosmos_rho_sigmas,
     build_flow_cosmos_shift_rf_tail_sigmas,
     build_flow_cosmos_sigmas,
+    build_flow_diffusers_linear_shift_sigmas,
     build_flow_rf_linear_s_tail_shift5_sigmas,
     build_flow_rf_linear_shift_sigmas,
 )
@@ -35,6 +36,7 @@ __all__ = [
     "build_flow_cosmos_rho_sigmas",
     "build_flow_cosmos_shift_rf_tail_sigmas",
     "build_flow_cosmos_sigmas",
+    "build_flow_diffusers_linear_shift_sigmas",
     "build_flow_rf_linear_s_tail_shift5_sigmas",
     "build_flow_rf_linear_shift_sigmas",
     "build_phase_positions",

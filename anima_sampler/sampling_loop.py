@@ -59,7 +59,7 @@ def sample_anima_flow_corrective(
     *,
     flow_solver: str,
     flow_schedule: str,
-    flow_shift: float = 1.0,
+    flow_shift: float = 3.0,
     flow_rho7_tail_auto: bool = False,
     final_clean_pass: bool = True,
     flow_er_order: int,

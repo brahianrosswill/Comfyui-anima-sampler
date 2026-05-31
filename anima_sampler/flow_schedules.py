@@ -18,6 +18,7 @@ from .cosmos_schedules import (
 from .rf_schedules import (
     _rf_shift_sigma,
     _stable_sigmoid,
+    build_flow_diffusers_linear_shift_sigmas,
     build_flow_rf_linear_s_tail_shift5_sigmas,
     build_flow_rf_linear_shift_sigmas,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "build_flow_cosmos_rho_sigmas",
     "build_flow_cosmos_shift_rf_tail_sigmas",
     "build_flow_cosmos_sigmas",
+    "build_flow_diffusers_linear_shift_sigmas",
     "build_flow_rf_linear_s_tail_shift5_sigmas",
     "build_flow_rf_linear_shift_sigmas",
 ]

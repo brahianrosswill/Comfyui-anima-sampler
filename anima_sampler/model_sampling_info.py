@@ -20,6 +20,7 @@ def _describe_model_sampling_shift(model: Any, *, flow_schedule: str) -> str:
             shift_text = str(shift)
         if class_name in {"ModelSamplingDiscreteFlow", "ModelSamplingFlux"}:
             rf_linear_schedules = {
+                "flow_diffusers_linear_shift",
                 "flow_rf_linear_shift",
                 "flow_rf_linear_s_tail_shift5",
             }

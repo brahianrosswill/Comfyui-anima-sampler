@@ -96,6 +96,13 @@ class FlowSamplerScheduleTests(unittest.TestCase):
             denoise=1.0,
             flow_schedule="flow_cosmos",
         )
+        flow_diffusers_linear_shift = build_anima_sigmas(
+            model,
+            4,
+            denoise=1.0,
+            flow_schedule="flow_diffusers_linear_shift",
+            flow_shift=3.0,
+        )
         flow_cosmos_lambda_biased_strong = build_anima_sigmas(
             model,
             4,
@@ -166,6 +173,18 @@ class FlowSamplerScheduleTests(unittest.TestCase):
         )
 
         self.assertEqual(simple.tolist(), [1.0, 0.75, 0.5, 0.25, 0.0])
+        self.assertAlmostEqual(float(flow_diffusers_linear_shift[0]), 1.0, places=6)
+        self.assertAlmostEqual(float(flow_diffusers_linear_shift[-2]), 0.00892857142857143, places=6)
+        self.assertEqual(float(flow_diffusers_linear_shift[-1]), 0.0)
+        self.assertTrue(
+            all(
+                float(left) > float(right)
+                for left, right in zip(
+                    flow_diffusers_linear_shift,
+                    flow_diffusers_linear_shift[1:-1],
+                )
+            )
+        )
         self.assertAlmostEqual(float(flow_cosmos[0]), 80.0 / 81.0, places=5)
         self.assertAlmostEqual(float(flow_cosmos[-2]), 0.002 / 1.002, places=5)
         self.assertGreater(float(flow_cosmos[1]), float(flow_cosmos[2]))
@@ -570,6 +589,10 @@ class FlowSamplerScheduleTests(unittest.TestCase):
         self.assertIn(
             "bypassed by flow_rf_linear_shift",
             _describe_model_sampling_shift(model, flow_schedule="flow_rf_linear_shift"),
+        )
+        self.assertIn(
+            "bypassed by flow_diffusers_linear_shift",
+            _describe_model_sampling_shift(model, flow_schedule="flow_diffusers_linear_shift"),
         )
         self.assertIn(
             "bypassed by flow_rf_linear_s_tail_shift5",

@@ -163,14 +163,15 @@ class ExperimentHelperTests(unittest.TestCase):
         self.assertEqual(
             parse_sweep_values(
                 (
-                    "flow_cosmos, flow_cosmos_rf_tail, flow_cosmos_lambda_biased_strong, "
-                    "flow_cosmos_rho7, flow_rf_linear_shift, "
+                    "flow_diffusers_linear_shift, flow_cosmos, flow_cosmos_rf_tail, "
+                    "flow_cosmos_lambda_biased_strong, flow_cosmos_rho7, flow_rf_linear_shift, "
                     "flow_rf_linear_s_tail_shift5, simple"
                 ),
                 "flow_schedule",
                 max_runs=12,
             ),
             [
+                "flow_diffusers_linear_shift",
                 "flow_cosmos",
                 "flow_cosmos_rf_tail",
                 "flow_cosmos_lambda_biased_strong",

@@ -71,10 +71,12 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertEqual(required["cfg"][1]["default"], 7.0)
         self.assertEqual(required["cfg_mode"][0], PUBLIC_CFG_MODES)
         self.assertEqual(required["cfg_mode"][1]["default"], "const")
-        self.assertEqual(required["flow_solver"][1]["default"], "flow_unipc2_x0")
-        self.assertEqual(required["flow_schedule"][1]["default"], "flow_rf_linear_shift")
+        self.assertEqual(required["flow_solver"][1]["default"], "flow_euler")
+        self.assertIn("flow_unipc2_x0", required["flow_solver"][0])
+        self.assertEqual(required["flow_schedule"][1]["default"], "flow_diffusers_linear_shift")
+        self.assertIn("flow_rf_linear_shift", required["flow_schedule"][0])
         self.assertIn("flow_rf_linear_s_tail_shift5", required["flow_schedule"][0])
-        self.assertEqual(required["flow_shift"][1]["default"], 5.0)
+        self.assertEqual(required["flow_shift"][1]["default"], 3.0)
         self.assertIn("seed", required)
         self.assertIn("denoise", required)
         self.assertIn("add_noise", required)
@@ -174,8 +176,8 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertEqual(settings["steps"], ANIMA_FLOW_BASELINE["steps"])
         self.assertEqual(settings["cfg"], ANIMA_FLOW_BASELINE["cfg"])
         self.assertEqual(settings["flow_solver"], ANIMA_FLOW_BASELINE["flow_solver"])
-        self.assertEqual(settings["flow_schedule"], "flow_rf_linear_shift")
-        self.assertEqual(settings["flow_shift"], 5.0)
+        self.assertEqual(settings["flow_schedule"], "flow_diffusers_linear_shift")
+        self.assertEqual(settings["flow_shift"], 3.0)
         self.assertTrue(settings["flow_rho7_tail_auto"])
         self.assertTrue(settings["final_clean_pass"])
         self.assertEqual(settings["flow_pc3_gamma"], 0.75)
@@ -188,17 +190,17 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertIn("flow_unipc_solver_type: bh2", summary)
         self.assertIn("flow_rho7_tail_auto: True", summary)
         self.assertIn("final_clean_pass: True", summary)
-        self.assertIn("sampler_default_flow_shift: 5.0000", summary)
+        self.assertIn("sampler_default_flow_shift: 3.0000", summary)
         self.assertNotIn("\nflow_shift:", summary)
 
-    def test_none_settings_use_rc2_baseline(self):
+    def test_none_settings_use_official_anima_diffusers_baseline(self):
         settings = _normalize_settings_object(None)
 
         self.assertEqual(settings["steps"], 35)
         self.assertEqual(settings["cfg"], 7.0)
-        self.assertEqual(settings["flow_solver"], "flow_unipc2_x0")
-        self.assertEqual(settings["flow_schedule"], "flow_rf_linear_shift")
-        self.assertEqual(settings["flow_shift"], 5.0)
+        self.assertEqual(settings["flow_solver"], "flow_euler")
+        self.assertEqual(settings["flow_schedule"], "flow_diffusers_linear_shift")
+        self.assertEqual(settings["flow_shift"], 3.0)
         self.assertFalse(settings["flow_rho7_tail_auto"])
         self.assertFalse(settings["final_clean_pass"])
         self.assertFalse(settings["cfg_legacy_progress"])
@@ -207,9 +209,9 @@ class NodeRegistrationTests(unittest.TestCase):
         settings = _normalize_settings_object({"flow_pc3_tolerance": 0.01})
 
         self.assertEqual(settings["flow_pc3_tolerance"], 0.01)
-        self.assertEqual(settings["flow_solver"], "flow_unipc2_x0")
-        self.assertEqual(settings["flow_schedule"], "flow_rf_linear_shift")
-        self.assertEqual(settings["flow_shift"], 5.0)
+        self.assertEqual(settings["flow_solver"], "flow_euler")
+        self.assertEqual(settings["flow_schedule"], "flow_diffusers_linear_shift")
+        self.assertEqual(settings["flow_shift"], 3.0)
         self.assertFalse(settings["flow_rho7_tail_auto"])
         self.assertFalse(settings["final_clean_pass"])
         self.assertEqual(settings["cfg_bump_start"], 0.0)
@@ -243,12 +245,25 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertEqual(const["cfg_early_scale"], 1.0)
         self.assertEqual(const["late_cfg_scale"], 1.0)
 
-    def test_disconnected_linear_shift_defaults_to_cosmos25_no_final_clean(self):
+    def test_disconnected_diffusers_linear_shift_defaults_to_no_final_clean(self):
         params = _normalize_settings_object(None)
-        params["flow_schedule"] = "flow_rf_linear_shift"
+        params["flow_schedule"] = "flow_diffusers_linear_shift"
 
         out = _apply_disconnected_sampler_defaults(params, None)
 
+        self.assertFalse(out["final_clean_pass"])
+
+    def test_enhanced_linear_shift_remains_selectable_without_final_clean(self):
+        params = _normalize_settings_object(None)
+        params["flow_solver"] = "flow_unipc2_x0"
+        params["flow_schedule"] = "flow_rf_linear_shift"
+        params["flow_shift"] = 5.0
+
+        out = _apply_disconnected_sampler_defaults(params, None)
+
+        self.assertEqual(out["flow_solver"], "flow_unipc2_x0")
+        self.assertEqual(out["flow_schedule"], "flow_rf_linear_shift")
+        self.assertEqual(out["flow_shift"], 5.0)
         self.assertFalse(out["final_clean_pass"])
 
     def test_connected_settings_can_force_linear_shift_final_clean(self):
@@ -293,8 +308,8 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertEqual(kwargs["seed"], 12)
         self.assertEqual(kwargs["steps"], 35)
         self.assertEqual(kwargs["cfg"], 7.0)
-        self.assertEqual(kwargs["flow_solver"], "flow_unipc2_x0")
-        self.assertEqual(kwargs["flow_schedule"], "flow_rf_linear_shift")
+        self.assertEqual(kwargs["flow_solver"], "flow_euler")
+        self.assertEqual(kwargs["flow_schedule"], "flow_diffusers_linear_shift")
         self.assertEqual(kwargs["cfg_schedule_domain"], "progress")
         self.assertEqual(kwargs["denoise"], 0.8)
         self.assertFalse(kwargs["add_noise"])
@@ -365,7 +380,7 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertIs(image, vae.image)
         self.assertIn("image_output: decoded", log)
 
-    def test_sampler_uses_cosmos25_linear_shift_default_without_settings(self):
+    def test_sampler_uses_official_anima_diffusers_default_without_settings(self):
         latent = {"samples": torch.zeros(1, 16, 8, 8)}
 
         with patch("anima_sampler.corrective_sampler_node._run_sampler_with_params", return_value=(latent, "log")) as run:
@@ -378,16 +393,16 @@ class NodeRegistrationTests(unittest.TestCase):
                 steps=35,
                 cfg=6.0,
                 cfg_mode="const",
-                flow_solver="flow_unipc2_x0",
-                flow_schedule="flow_rf_linear_shift",
-                flow_shift=5.0,
+                flow_solver="flow_euler",
+                flow_schedule="flow_diffusers_linear_shift",
+                flow_shift=3.0,
                 denoise=1.0,
                 add_noise=True,
             )
 
         params = run.call_args.kwargs["params"]
-        self.assertEqual(params["flow_schedule"], "flow_rf_linear_shift")
-        self.assertEqual(params["flow_solver"], "flow_unipc2_x0")
+        self.assertEqual(params["flow_schedule"], "flow_diffusers_linear_shift")
+        self.assertEqual(params["flow_solver"], "flow_euler")
         self.assertEqual(params["cfg_schedule_mode"], "constant")
         self.assertFalse(params["final_clean_pass"])
 

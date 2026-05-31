@@ -8,6 +8,7 @@ from anima_sampler.flow_schedules import (
     build_flow_cosmos_rho_sigmas,
     build_flow_cosmos_shift_rf_tail_sigmas,
     build_flow_cosmos_sigmas,
+    build_flow_diffusers_linear_shift_sigmas,
     build_flow_rf_linear_s_tail_shift5_sigmas,
     build_flow_rf_linear_shift_sigmas,
 )
@@ -25,6 +26,10 @@ class SchedulerTests(unittest.TestCase):
     def test_scheduler_module_keeps_compatibility_exports(self):
         self.assertIs(scheduler_facade.build_simple_sigmas, build_simple_sigmas)
         self.assertIs(scheduler_facade.build_flow_cosmos_sigmas, build_flow_cosmos_sigmas)
+        self.assertIs(
+            scheduler_facade.build_flow_diffusers_linear_shift_sigmas,
+            build_flow_diffusers_linear_shift_sigmas,
+        )
         self.assertIs(scheduler_facade.build_flow_rf_linear_shift_sigmas, build_flow_rf_linear_shift_sigmas)
         self.assertIs(scheduler_facade.PhaseSteps, PhaseSteps)
 
@@ -247,6 +252,21 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(sigmas[-1], 0.0)
         self.assertTrue(all(left > right for left, right in zip(sigmas, sigmas[1:])))
 
+    def test_flow_diffusers_linear_shift_matches_anima_scheduler_config(self):
+        sigmas = build_flow_diffusers_linear_shift_sigmas(35, shift=3.0)
+        training_sigma_min = _shift_sigma(1.0 / 1000.0, shift=3.0)
+        expected = [
+            _shift_sigma(1.0 + (step / 34.0) * (training_sigma_min - 1.0), shift=3.0)
+            for step in range(35)
+        ] + [0.0]
+
+        self.assertEqual(len(sigmas), 36)
+        self.assertEqual(sigmas[-1], 0.0)
+        for actual, expected_value in zip(sigmas, expected):
+            self.assertAlmostEqual(actual, expected_value, places=12)
+        self.assertAlmostEqual(sigmas[0], 1.0, places=12)
+        self.assertAlmostEqual(sigmas[-2], 0.00892857142857143, places=12)
+
     def test_flow_rf_linear_shift_one_is_unshifted_linear_grid(self):
         sigmas = build_flow_rf_linear_shift_sigmas(35, shift=1.0)
 
@@ -386,6 +406,10 @@ def _flow_ell(t: float) -> float:
 
 def _external_sigma_from_flow_t(t: float) -> float:
     return t / (1.0 - t)
+
+
+def _shift_sigma(sigma: float, *, shift: float) -> float:
+    return shift * sigma / (1.0 + (shift - 1.0) * sigma)
 
 
 def _gap_containing(values: list[float], target: float) -> float:

@@ -7,10 +7,11 @@ import math
 from .cfg_schedule import CFG_SCHEDULE_MODES
 from .flow_constants import FLOW_SCHEDULES, FLOW_SOLVERS
 
-DEFAULT_FLOW_SCHEDULE = "flow_rf_linear_shift"
+DEFAULT_FLOW_SCHEDULE = "flow_diffusers_linear_shift"
 DEFAULT_PUBLIC_CFG_MODE = "const"
 PUBLIC_CFG_MODES = ["const", "bump cfg", "ramp cfg"]
 NO_FINAL_CLEAN_DISCONNECTED_SCHEDULES = {
+    "flow_diffusers_linear_shift",
     "flow_rf_linear_shift",
     "flow_rf_linear_s_tail_shift5",
 }
@@ -18,7 +19,7 @@ NO_FINAL_CLEAN_DISCONNECTED_SCHEDULES = {
 ANIMA_FLOW_BASELINE = {
     "steps": 35,
     "cfg": 7.0,
-    "flow_solver": "flow_unipc2_x0",
+    "flow_solver": "flow_euler",
     "flow_er_order": 2,
     "flow_pc3_gamma": 1.0,
     "flow_pc3_tolerance": 0.005,
@@ -30,7 +31,7 @@ ANIMA_FLOW_BASELINE = {
     "flow_unipc_dynamic_thresholding_ratio": 0.995,
     "flow_unipc_sample_max_value": 1.0,
     "flow_schedule": DEFAULT_FLOW_SCHEDULE,
-    "flow_shift": 5.0,
+    "flow_shift": 3.0,
     "flow_rho7_tail_auto": False,
     "final_clean_pass": False,
     "cosmos_sigma_max": 80.0,

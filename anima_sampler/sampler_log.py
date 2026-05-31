@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 
 def _flow_shift_log_line(flow_schedule: str, flow_shift: float) -> str:
-    if str(flow_schedule) in {"flow_cosmos_rf_tail", "flow_rf_linear_shift"}:
+    if str(flow_schedule) in {
+        "flow_cosmos_rf_tail",
+        "flow_diffusers_linear_shift",
+        "flow_rf_linear_shift",
+    }:
         return f"flow_shift: {float(flow_shift):.4f}"
     if str(flow_schedule) == "flow_rf_linear_s_tail_shift5":
         return (
