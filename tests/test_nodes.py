@@ -73,6 +73,8 @@ class NodeRegistrationTests(unittest.TestCase):
         self.assertEqual(required["cfg_mode"][1]["default"], "const")
         self.assertEqual(required["flow_solver"][1]["default"], "flow_euler")
         self.assertIn("flow_unipc2_x0", required["flow_solver"][0])
+        self.assertIn("flow_unipc2_diffusers_x0", required["flow_solver"][0])
+        self.assertIn("flow_pc3_diffusers_damped", required["flow_solver"][0])
         self.assertEqual(required["flow_schedule"][1]["default"], "flow_diffusers_linear_shift")
         self.assertIn("flow_rf_linear_shift", required["flow_schedule"][0])
         self.assertIn("flow_rf_linear_s_tail_shift5", required["flow_schedule"][0])

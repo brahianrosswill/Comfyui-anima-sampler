@@ -10,6 +10,14 @@ from .cfg_runtime import (
     build_cfg_schedule_settings,
     set_cfg_for_step,
 )
+from .diffusers_solver_policy import (
+    diffusers_grid_pc3_predictor_max_order,
+    diffusers_grid_pc3_skip_note,
+    diffusers_grid_step_policy,
+    diffusers_grid_unipc_disable_correctors,
+    diffusers_grid_unipc_solver_order,
+)
+from .flow_constants import FLOW_PC3_SOLVERS, FLOW_UNIPC_SOLVERS
 from .sampler_trace import (
     _init_sampler_stats,
 )
@@ -297,7 +305,27 @@ def sample_anima_flow_corrective(
                 )
                 continue
 
-            if flow_solver == "flow_unipc2_x0":
+            if flow_solver in FLOW_UNIPC_SOLVERS:
+                unipc_solver_order = flow_unipc_order
+                unipc_lower_order_final = flow_unipc_lower_order_final
+                unipc_disable_corrector = tuple(
+                    range(max(0, int(flow_unipc_disable_corrector_first)))
+                )
+                unipc_note = ""
+                if flow_solver == "flow_unipc2_diffusers_x0":
+                    unipc_policy = diffusers_grid_step_policy(torch, t_for_model, t_next)
+                    unipc_solver_order = diffusers_grid_unipc_solver_order(
+                        flow_unipc_order,
+                        unipc_policy,
+                    )
+                    unipc_lower_order_final = True
+                    unipc_disable_corrector = diffusers_grid_unipc_disable_correctors(
+                        step_index=step_index,
+                        disable_corrector_first=flow_unipc_disable_corrector_first,
+                        policy=unipc_policy,
+                    )
+                    if unipc_policy.tail_interval:
+                        unipc_note = "unipc_diffusers_tail"
                 unipc_result = flow_unipc2_x0_step(
                     x,
                     denoised,
@@ -306,10 +334,10 @@ def sample_anima_flow_corrective(
                     state=unipc_state,
                     step_index=step_index,
                     total_steps=total_steps,
-                    solver_order=flow_unipc_order,
+                    solver_order=unipc_solver_order,
                     solver_type=flow_unipc_solver_type,
-                    lower_order_final=flow_unipc_lower_order_final,
-                    disable_corrector=tuple(range(max(0, int(flow_unipc_disable_corrector_first)))),
+                    lower_order_final=unipc_lower_order_final,
+                    disable_corrector=unipc_disable_corrector,
                     thresholding=flow_unipc_thresholding,
                     dynamic_thresholding_ratio=flow_unipc_dynamic_thresholding_ratio,
                     sample_max_value=flow_unipc_sample_max_value,
@@ -338,6 +366,7 @@ def sample_anima_flow_corrective(
                     predictor_order=int(unipc_result.predictor_order),
                     corrector_order=int(unipc_result.corrector_order),
                     refresh_applied=refresh_applied,
+                    note=unipc_note,
                 )
                 continue
 
@@ -364,39 +393,45 @@ def sample_anima_flow_corrective(
                     refresh_applied=refresh_applied,
                     note=(
                         "pc3_terminal"
-                        if flow_solver == "flow_pc3_damped" and float(t_next) <= 0.0
+                        if flow_solver in FLOW_PC3_SOLVERS and float(t_next) <= 0.0
                         else ""
                     ),
                 )
                 continue
 
-            if flow_solver not in {"flow_heun", "flow_pc3_damped"}:
+            if flow_solver not in {"flow_heun", *FLOW_PC3_SOLVERS}:
                 raise ValueError(f"unsupported flow_solver: {flow_solver}")
 
             x_pred_order = 1
-            if flow_solver == "flow_pc3_damped":
+            pc3_policy = None
+            if flow_solver == "flow_pc3_diffusers_damped":
+                pc3_policy = diffusers_grid_step_policy(torch, t_for_model, t_next)
+            if flow_solver in FLOW_PC3_SOLVERS:
+                pc3_max_order = _flow_pc3_predictor_max_order(step_index, total_steps)
+                if pc3_policy is not None:
+                    pc3_max_order = diffusers_grid_pc3_predictor_max_order(
+                        pc3_max_order,
+                        pc3_policy,
+                    )
                 predictor_result = flow_pc3_predictor_step_result(
                     x,
                     denoised,
                     t_for_model,
                     t_next,
                     state=pc3_state,
-                    max_order=_flow_pc3_predictor_max_order(step_index, total_steps),
+                    max_order=pc3_max_order,
                 )
                 x_pred = predictor_result.x
                 x_pred_order = int(predictor_result.order)
             else:
                 x_pred = flow_euler_step(x, denoised, t_for_model, t_next)
 
-            if flow_solver == "flow_pc3_damped" and not _flow_pc3_should_endpoint_correct(
-                torch,
-                pc3_state,
-                x_pred_order,
-                step_index,
-                total_steps,
-                t_next,
-            ):
-                skip_note = _flow_pc3_endpoint_skip_note(
+            pc3_skip_diffusers_endpoint = bool(
+                pc3_policy is not None and pc3_policy.tail_interval
+            )
+            if flow_solver in FLOW_PC3_SOLVERS and (
+                pc3_skip_diffusers_endpoint
+                or not _flow_pc3_should_endpoint_correct(
                     torch,
                     pc3_state,
                     x_pred_order,
@@ -404,6 +439,18 @@ def sample_anima_flow_corrective(
                     total_steps,
                     t_next,
                 )
+            ):
+                if pc3_skip_diffusers_endpoint:
+                    skip_note = diffusers_grid_pc3_skip_note(pc3_policy)
+                else:
+                    skip_note = _flow_pc3_endpoint_skip_note(
+                        torch,
+                        pc3_state,
+                        x_pred_order,
+                        step_index,
+                        total_steps,
+                        t_next,
+                    )
                 pc3_state = _flow_pc3_next_state(torch, pc3_state, denoised, t_for_model)
                 x, refresh_applied = apply_endpoint_refresh(
                     torch,
@@ -457,7 +504,7 @@ def sample_anima_flow_corrective(
                 x_det = flow_heun_step(x, denoised, denoised_next, t_for_model, t_next)
                 trace_x_corrected = x_det
                 trace_corrector_order = 1
-            elif flow_solver == "flow_pc3_damped":
+            elif flow_solver in FLOW_PC3_SOLVERS:
                 pc3_result = flow_pc3_damped_step_result(
                     x,
                     denoised,
@@ -488,7 +535,7 @@ def sample_anima_flow_corrective(
                 generator,
                 refresh_settings,
             )
-            if flow_solver == "flow_pc3_damped" and refresh_applied:
+            if flow_solver in FLOW_PC3_SOLVERS and refresh_applied:
                 pc3_state = FlowPC3State()
             append_step_trace(
                 torch,

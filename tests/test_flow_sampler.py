@@ -12,6 +12,12 @@ from anima_sampler.cfg_schedule import (
     cfg_schedule_position,
 )
 from anima_sampler.flow_constants import FLOW_SOLVERS
+from anima_sampler.diffusers_solver_policy import (
+    diffusers_grid_pc3_predictor_max_order,
+    diffusers_grid_step_policy,
+    diffusers_grid_unipc_disable_correctors,
+    diffusers_grid_unipc_solver_order,
+)
 from anima_sampler.flow_sampler import _fix_empty_latent_channels_compat
 from anima_sampler.latent_utils import (
     _infer_cosmos_latent_channels,
@@ -49,11 +55,32 @@ class FlowSamplerScheduleTests(unittest.TestCase):
         self.assertIn("flow_ab2", FLOW_SOLVERS)
         self.assertIn("flow_heun", FLOW_SOLVERS)
         self.assertIn("flow_pc3_damped", FLOW_SOLVERS)
+        self.assertIn("flow_pc3_diffusers_damped", FLOW_SOLVERS)
         self.assertIn("flow_3m_damped", FLOW_SOLVERS)
         self.assertIn("flow_unipc2_x0", FLOW_SOLVERS)
+        self.assertIn("flow_unipc2_diffusers_x0", FLOW_SOLVERS)
         self.assertNotIn("flow_pc3_fsal_gated", FLOW_SOLVERS)
         self.assertNotIn("flow_3m_sparse_pc3_fsal", FLOW_SOLVERS)
         self.assertNotIn("flow_rho7_euler", FLOW_SOLVERS)
+
+    def test_diffusers_grid_policy_caps_tail_without_treating_first_step_as_tail(self):
+        first = diffusers_grid_step_policy(torch, torch.tensor(1.0), torch.tensor(0.99))
+        tail = diffusers_grid_step_policy(torch, torch.tensor(0.091), torch.tensor(0.008929))
+
+        self.assertFalse(first.tail_interval)
+        self.assertTrue(tail.tail_interval)
+        self.assertTrue(tail.tail_corrector)
+        self.assertEqual(diffusers_grid_unipc_solver_order(4, first), 2)
+        self.assertEqual(diffusers_grid_unipc_solver_order(4, tail), 1)
+        self.assertEqual(diffusers_grid_pc3_predictor_max_order(3, tail), 1)
+        self.assertEqual(
+            diffusers_grid_unipc_disable_correctors(
+                step_index=33,
+                disable_corrector_first=1,
+                policy=tail,
+            ),
+            (0, 32),
+        )
 
     def test_sampler_log_explains_steps_and_estimated_calls(self):
         log = _dummy_sampler_log(actual_steps=12, sampler_core="flow_heun")
@@ -1666,6 +1693,66 @@ class FlowSamplerScheduleTests(unittest.TestCase):
         self.assertEqual(trace[4]["note"], "pc3_terminal")
         self.assertEqual(stats["pc3_used_total"], 1)
 
+    def test_sample_anima_flow_unipc_diffusers_grid_caps_tail_order(self):
+        model = _CleanPassModel([torch.tensor([[2.0 + index]]) for index in range(6)])
+        sigmas = torch.tensor([0.90, 0.85, 0.80, 0.75, 0.091, 0.008929, 0.0])
+        stats = {}
+
+        with _fake_comfy_sampling():
+            sample_anima_flow_corrective(
+                model,
+                torch.tensor([[10.0]]),
+                sigmas,
+                {"seed": 1, "model_options": {}},
+                **_sample_loop_kwargs(
+                    flow_solver="flow_unipc2_diffusers_x0",
+                    flow_schedule="flow_diffusers_linear_shift",
+                    final_clean_pass=False,
+                ),
+                sampler_stats=stats,
+                collect_diagnostics=True,
+            )
+
+        trace = stats["step_trace"]
+        self.assertEqual({row["solver"] for row in trace}, {"flow_unipc2_diffusers_x0"})
+        self.assertEqual([row["predictor_order"] for row in trace], [1, 2, 2, 1, 1, 1])
+        self.assertEqual(trace[3]["note"], "unipc_diffusers_tail")
+        self.assertEqual(trace[4]["corrector_order"], 0)
+        self.assertEqual(trace[5]["corrector_order"], 0)
+
+    def test_sample_anima_flow_pc3_diffusers_grid_skips_tail_endpoint(self):
+        model = _CleanPassModel([torch.tensor([[2.0 + index]]) for index in range(9)])
+        sigmas = torch.tensor([0.90, 0.85, 0.80, 0.75, 0.70, 0.091, 0.008929, 0.0])
+        stats = {}
+
+        with _fake_comfy_sampling():
+            sample_anima_flow_corrective(
+                model,
+                torch.tensor([[10.0]]),
+                sigmas,
+                {"seed": 1, "model_options": {}},
+                **_sample_loop_kwargs(
+                    flow_solver="flow_pc3_diffusers_damped",
+                    flow_schedule="flow_diffusers_linear_shift",
+                    flow_pc3_tolerance=1.0,
+                    final_clean_pass=False,
+                ),
+                sampler_stats=stats,
+                collect_diagnostics=True,
+            )
+
+        trace = stats["step_trace"]
+        self.assertEqual({row["solver"] for row in trace}, {"flow_pc3_diffusers_damped"})
+        self.assertEqual(
+            [row["endpoint_call"] for row in trace],
+            [False, False, True, True, False, False, False],
+        )
+        self.assertEqual([row["predictor_order"] for row in trace], [1, 2, 3, 3, 1, 1, 1])
+        self.assertEqual(trace[4]["note"], "pc3_diffusers_tail")
+        self.assertEqual(trace[5]["note"], "pc3_diffusers_tail")
+        self.assertEqual(trace[6]["note"], "pc3_terminal")
+        self.assertEqual(stats["pc3_used_total"], 2)
+
     def test_flow_er_step_uses_data_prediction_update(self):
         x = torch.tensor([10.0])
         denoised = torch.tensor([2.0])
@@ -1910,6 +1997,42 @@ def _dummy_sampler_log(
         pc3_used_total=pc3_used_total,
         mean_gamma3=mean_gamma3,
     )
+
+
+def _sample_loop_kwargs(**overrides):
+    params = {
+        "flow_solver": "flow_euler",
+        "flow_schedule": "flow_cosmos",
+        "flow_shift": 1.0,
+        "flow_rho7_tail_auto": False,
+        "final_clean_pass": False,
+        "flow_er_order": 2,
+        "flow_pc3_gamma": 1.0,
+        "flow_pc3_tolerance": 0.005,
+        "base_cfg": 6.0,
+        "cfg_schedule_domain": "progress",
+        "cfg_schedule_mode": "constant",
+        "early_cfg_boost": 0.0,
+        "early_cfg_until": 0.0,
+        "late_cfg_scale": 1.0,
+        "late_cfg_start": 1.0,
+        "cfg_early_scale": 1.0,
+        "cfg_early_ramp_end": 0.0,
+        "cfg_peak_boost": 0.0,
+        "cfg_bump_start": 0.0,
+        "cfg_bump_end": 0.27,
+        "cfg_beta_alpha": 2.0,
+        "cfg_beta_beta": 3.0,
+        "cfg_interval_start": 0.12,
+        "cfg_interval_rise_end": 0.24,
+        "cfg_interval_fall_start": 0.36,
+        "cfg_interval_end": 0.58,
+        "rf_endpoint_noise_refresh_enabled": False,
+        "rf_endpoint_noise_refresh_strength": 0.0,
+        "rf_endpoint_noise_refresh_until": 0.0,
+    }
+    params.update(overrides)
+    return params
 
 
 if __name__ == "__main__":

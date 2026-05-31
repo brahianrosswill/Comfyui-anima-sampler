@@ -139,7 +139,8 @@ class ExperimentHelperTests(unittest.TestCase):
             parse_sweep_values(
                 (
                     "flow_euler, flow_ab2, flow_heun, flow_pc3_damped, "
-                    "flow_3m_damped, flow_unipc2_x0, flow_er"
+                    "flow_pc3_diffusers_damped, flow_3m_damped, "
+                    "flow_unipc2_x0, flow_unipc2_diffusers_x0, flow_er"
                 ),
                 "flow_solver",
                 max_runs=12,
@@ -149,8 +150,10 @@ class ExperimentHelperTests(unittest.TestCase):
                 "flow_ab2",
                 "flow_heun",
                 "flow_pc3_damped",
+                "flow_pc3_diffusers_damped",
                 "flow_3m_damped",
                 "flow_unipc2_x0",
+                "flow_unipc2_diffusers_x0",
                 "flow_er",
             ],
         )

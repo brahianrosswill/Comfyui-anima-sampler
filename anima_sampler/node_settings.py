@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from .cfg_schedule import CFG_SCHEDULE_MODES
-from .flow_constants import FLOW_SCHEDULES, FLOW_SOLVERS
+from .flow_constants import FLOW_SCHEDULES, FLOW_SOLVERS, FLOW_TWO_MODEL_CALL_SOLVERS
 
 DEFAULT_FLOW_SCHEDULE = "flow_diffusers_linear_shift"
 DEFAULT_PUBLIC_CFG_MODE = "const"
@@ -245,10 +245,7 @@ def _denoise_domain_from_settings(settings: dict) -> str:
 
 def _estimated_model_calls(settings: dict) -> int:
     steps = max(1, int(settings["steps"]))
-    if settings["flow_solver"] in {
-        "flow_heun",
-        "flow_pc3_damped",
-    }:
+    if settings["flow_solver"] in FLOW_TWO_MODEL_CALL_SOLVERS:
         calls = max(1, steps * 2 - 1)
         return calls + int(bool(settings["final_clean_pass"]))
     return steps + int(bool(settings["final_clean_pass"]))

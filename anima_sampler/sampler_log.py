@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .flow_constants import FLOW_TWO_MODEL_CALL_SOLVERS
+
 
 def _flow_shift_log_line(flow_schedule: str, flow_shift: float) -> str:
     if str(flow_schedule) in {
@@ -141,10 +143,7 @@ class AnimaSamplerLog:
         return "\n".join(lines)
 
     def estimated_model_calls(self) -> int:
-        if self.sampler_core in {
-            "flow_heun",
-            "flow_pc3_damped",
-        }:
+        if self.sampler_core in FLOW_TWO_MODEL_CALL_SOLVERS:
             calls = max(1, self.actual_steps * 2 - 1)
             return calls + int(self.final_clean_pass)
         return max(1, self.actual_steps) + int(self.final_clean_pass)
